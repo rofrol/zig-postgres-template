@@ -1,24 +1,56 @@
 const std = @import("std");
+const print = std.debug.print;
+const build_options = @import("build_options");
+
+const Postgres = @import("postgres");
+const Pg = Postgres.Pg;
+const Result = Postgres.Result;
+const Builder = Postgres.Builder;
+const FieldInfo = Postgres.FieldInfo;
+
+const ArrayList = std.ArrayList;
+const Utf8View = std.unicode.Utf8View;
+
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+const allocator = gpa.allocator();
+
+const Users = struct {
+    id: u16 = 0,
+    name: []const u8 = "",
+    age: u16 = 0,
+};
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    std.debug.print("build_options.db_uri: {s}\n", .{build_options.db_uri});
+    var db = try Pg.connect(allocator, build_options.db_uri);
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    defer {
+        std.debug.assert(!gpa.deinit());
+        db.deinit();
+    }
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    const schema =
+        // \\CREATE DATABASE root;
+        \\CREATE TABLE IF NOT EXISTS users (id INT, name TEXT, age INT);
+    ;
 
-    try bw.flush(); // don't forget to flush!
-}
+    _ = try db.exec(schema);
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+    _ = try db.insert(Users{ .id = 1, .name = "Charlie", .age = 20 });
+    _ = try db.insert(Users{ .id = 2, .name = "Steve", .age = 25 });
+    _ = try db.insert(Users{ .id = 3, .name = "Tom", .age = 25 });
+
+    var result = try db.execValues("SELECT * FROM users WHERE name = {s};", .{"Charlie"});
+
+    var user = result.parse(Users, allocator);
+
+    if (user) |value| print("{s} \n", .{value.name});
+
+    var result2 = try db.execValues("SELECT * FROM users WHERE age > {d};", .{20});
+
+    while (result2.parse(Users, allocator)) |value| {
+        print("{s} \n", .{value.name});
+    }
+
+    _ = try db.exec("DROP TABLE users");
 }
