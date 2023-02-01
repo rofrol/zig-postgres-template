@@ -9,5 +9,5 @@ You need to create some database, i.e. `mydb`.
 % cd deps
 % git clone https://github.com/rofrol/zig-postgres
 % cd ..
-zig build run -Ddb=postgresql://rfrolow@localhost:5432/mydb
+% zig build run -Ddb=postgresql://rfrolow@localhost:5432/mydb
 ```
