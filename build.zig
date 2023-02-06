@@ -1,14 +1,5 @@
 const std = @import("std");
-const Pkg = std.build.Pkg;
-const FileSource = std.build.FileSource;
 const builtin = @import("builtin");
-
-const pkg_postgres = Pkg{
-    .name = "postgres",
-    .source = FileSource{
-        .path = "zig-postgres/src/postgres.zig",
-    },
-};
 
 const include_dir = switch (builtin.target.os.tag) {
     .linux => "/usr/include",
@@ -24,11 +15,13 @@ pub fn build(b: *std.build.Builder) void {
     // for restricting supported target set are available.
     const target = b.standardTargetOptions(.{});
 
-    // Standard release options allow the person running `zig build` to select
-    // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
-    const mode = b.standardReleaseOptions();
+    const optimize = b.standardOptimizeOption(.{});
 
     b.addSearchPrefix(include_dir);
+
+    const module_postgres = b.createModule(.{
+        .source_file = .{ .path = thisDir() ++ "/deps/zig-postgres/src/postgres.zig" },
+    });
 
     const db_uri = b.option(
         []const u8,
@@ -39,11 +32,14 @@ pub fn build(b: *std.build.Builder) void {
     const db_options = b.addOptions();
     db_options.addOption([]const u8, "db_uri", db_uri);
 
-    const exe = b.addExecutable("import-zig-tryout", "src/main.zig");
-    exe.setTarget(target);
-    exe.setBuildMode(mode);
+    const exe = b.addExecutable(.{
+        .name = "import-zig-tryout",
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
     exe.addOptions("build_options", db_options);
-    exe.addPackage(pkg_postgres);
+    exe.addModule("postgres", module_postgres);
     exe.linkSystemLibrary("pq");
     exe.install();
 
@@ -56,10 +52,16 @@ pub fn build(b: *std.build.Builder) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const exe_tests = b.addTest("src/main.zig");
-    exe_tests.setTarget(target);
-    exe_tests.setBuildMode(mode);
+    const exe_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = .Debug,
+    });
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&exe_tests.step);
+}
+
+inline fn thisDir() []const u8 {
+    return comptime std.fs.path.dirname(@src().file) orelse ".";
 }
