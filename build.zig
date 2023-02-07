@@ -19,9 +19,8 @@ pub fn build(b: *std.build.Builder) void {
 
     b.addSearchPrefix(include_dir);
 
-    const module_postgres = b.createModule(.{
-        .source_file = .{ .path = thisDir() ++ "/deps/zig-postgres/src/postgres.zig" },
-    });
+    const opts = .{ .target = target, .optimize = optimize };
+    const postgres_module = b.dependency("postgres", opts).module("postgres");
 
     const db_uri = b.option(
         []const u8,
@@ -39,7 +38,7 @@ pub fn build(b: *std.build.Builder) void {
         .optimize = optimize,
     });
     exe.addOptions("build_options", db_options);
-    exe.addModule("postgres", module_postgres);
+    exe.addModule("postgres", postgres_module);
     exe.linkSystemLibrary("pq");
     exe.install();
 
