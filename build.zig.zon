@@ -1,0 +1,10 @@
+.{
+    .name = "zig-postgres-template",
+    .version = "0.1.0",
+    .dependencies = .{
+        .postgres = .{
+            .url = "https://github.com/zig-postgres/zig-postgres/archive/db4f630d00bb23ba024fb1e11e005d12948e3f70.tar.gz",
+            .hash = "12207eee0987e06dcbc53337b1def1adf15401f79e63d8448ec06703147e46f23b90",
+        },
+    },
+}
